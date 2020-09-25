@@ -636,6 +636,9 @@ type Proxy struct {
 
 	// Password of the hub user
 	Password string `yaml:"password"`
+
+	// RepositoryTTL is the TTL of the objects in the cache
+	RepositoryTTL time.Duration `yaml:"repositoryTTL"`
 }
 
 // Parse parses an input configuration yaml document into a Configuration struct

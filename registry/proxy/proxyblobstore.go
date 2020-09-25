@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
@@ -18,6 +19,7 @@ type proxyBlobStore struct {
 	localStore     distribution.BlobStore
 	remoteStore    distribution.BlobService
 	scheduler      *scheduler.TTLExpirationScheduler
+	repositoryTTL  time.Duration
 	repositoryName reference.Named
 	authChallenger authChallenger
 }
@@ -141,7 +143,7 @@ func (pbs *proxyBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter,
 			return
 		}
 
-		pbs.scheduler.AddBlob(blobRef, repositoryTTL)
+		pbs.scheduler.AddBlob(blobRef, pbs.repositoryTTL)
 	}(dgst)
 
 	_, err = pbs.copyContent(ctx, dgst, w)
