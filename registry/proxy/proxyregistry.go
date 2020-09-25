@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
@@ -20,12 +21,16 @@ import (
 	"github.com/docker/distribution/registry/storage/driver"
 )
 
+// Default TTL for objects in proxy cache
+const defaultRepositoryTTL = 24 * 7 * time.Hour
+
 // proxyingRegistry fetches content from a remote registry and caches it locally
 type proxyingRegistry struct {
 	embedded       distribution.Namespace // provides local registry functionality
 	scheduler      *scheduler.TTLExpirationScheduler
 	remoteURL      url.URL
 	authChallenger authChallenger
+	repositoryTTL  time.Duration
 }
 
 // NewRegistryPullThroughCache creates a registry acting as a pull through cache
@@ -98,6 +103,11 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 		return nil, err
 	}
 
+	repositoryTTL := defaultRepositoryTTL
+	if config.RepositoryTTL > 0 {
+		repositoryTTL = config.RepositoryTTL
+	}
+
 	return &proxyingRegistry{
 		embedded:  registry,
 		scheduler: s,
@@ -107,6 +117,7 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 			cm:        challenge.NewSimpleManager(),
 			cs:        cs,
 		},
+		repositoryTTL: repositoryTTL,
 	}, nil
 }
 
@@ -163,6 +174,7 @@ func (pr *proxyingRegistry) Repository(ctx context.Context, name reference.Named
 			scheduler:      pr.scheduler,
 			repositoryName: name,
 			authChallenger: pr.authChallenger,
+			repositoryTTL:  pr.repositoryTTL,
 		},
 		manifests: &proxyManifestStore{
 			repositoryName:  name,
@@ -171,6 +183,7 @@ func (pr *proxyingRegistry) Repository(ctx context.Context, name reference.Named
 			ctx:             ctx,
 			scheduler:       pr.scheduler,
 			authChallenger:  pr.authChallenger,
+			repositoryTTL:   pr.repositoryTTL,
 		},
 		name: name,
 		tags: &proxyTagService{
